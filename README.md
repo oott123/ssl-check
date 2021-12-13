@@ -1,6 +1,6 @@
 # ssl-check
 
-Check ssl certificate before it expires. We only check expire date of ssl certificates.
+Get notify before ssl certificates expire.
 
 ## Usage
 
