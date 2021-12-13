@@ -1,0 +1,37 @@
+#!/bin/bash
+
+set -eo pipefail
+
+SSL_CHECK_HOSTS=()
+SSL_CHECK_BEFORE_DAYS=7
+
+if [ -e ./.env ]; then
+  source ./.env
+fi
+
+failedHosts=()
+
+for host in "${SSL_CHECK_HOSTS[@]}"; do
+  sniHost=${host%:443}
+  checkEndSeconds=$(("$SSL_CHECK_BEFORE_DAYS"*24*60*60))
+
+  printf 'Checking %s ... ' "$host"
+  checkResult=0
+  (
+    (timeout 30s openssl s_client -servername "$sniHost" -connect "$host" 2>/dev/null </dev/null) \
+    | openssl x509 -noout -checkend "$checkEndSeconds"
+  ) || checkResult=$?
+
+  if [ $checkResult -ne 0 ]; then
+    failedHosts+=("$host")
+  fi
+done
+
+if [ ${#failedHosts[@]} -gt 0 ]; then
+  echo "Found ${#failedHosts[@]} hosts with certificate will expires in $SSL_CHECK_BEFORE_DAYS days: "
+  echo "${failedHosts[@]}"
+  echo "Please renew the certificate for these hosts."
+  exit 1
+else
+  echo "OK. No expired ssl certificate found."
+fi
